@@ -1,0 +1,37 @@
+import yfinance as yf
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from statsmodels.tsa.arima.model import ARIMA
+
+# Defining graphing function
+
+def make_graph(stock_data, stock):
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=("Historical Share Price", "Time Series Forecast"), vertical_spacing=0.3)
+    stock_data_specific = stock_data[stock_data.Date <= '2021-06-14']
+    fig.add_trace(go.Scatter(x=pd.to_datetime(stock_data_specific.Date, infer_datetime_format=True), y=stock_data_specific.Close.astype("float"), name="Share Price"), row=1, col=1)
+
+    # ARIMA Forecast
+    model = ARIMA(stock_data_specific['Close'], order=(1, 0, 0))
+    model_fit = model.fit(disp=0)
+    y_pred = model_fit.predict(start=len(stock_data_specific), end=len(stock_data_specific) + 50)
+
+    fig.add_trace(go.Scatter(x=pd.date_range(start=stock_data_specific['Date'].max(), periods=len(y_pred) + 1, freq='D')[1:], y=y_pred, name='ARIMA Forecast'), row=2, col=1)
+
+    fig.update_xaxes(title_text="Date", row=1, col=1)
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+    fig.update_yaxes(title_text="Price ($US)", row=1, col=1)
+    fig.update_layout(showlegend=False, height=900, title=stock, xaxis_rangeslider_visible=True)
+    fig.show()
+
+# Use yfinance to extract stock data
+SPY = yf.Ticker("SPY")
+SPY_data = SPY.history(period="max")
+
+# Reset the index
+SPY_data.reset_index(inplace=True)
+
+# Plot graph with ARIMA forecast
+make_graph(SPY_data, 'S&P 500')
